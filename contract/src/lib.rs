@@ -18,24 +18,67 @@ use near_sdk::collections::LookupMap;
 
 setup_alloc!();
 
+const PUZZLE_NUMBER: u8 = 1;
+
 // Structs in Rust are similar to other languages, and may include impl keyword as shown below
 // Note: the names of the structs are not important when calling the smart contract, but the function names are
 #[near_bindgen]
 #[derive(BorshDeserialize, BorshSerialize)]
 pub struct Welcome {
     records: LookupMap<String, String>,
+    crossword_solution: String,
 }
 
 impl Default for Welcome {
   fn default() -> Self {
     Self {
       records: LookupMap::new(b"a".to_vec()),
+      crossword_solution: "test_string".to_string(),
     }
   }
 }
 
 #[near_bindgen]
 impl Welcome {
+
+    #[init]
+    pub fn new(solution: String) -> Self {
+        let hashed_input = env::sha256(solution.as_bytes());
+        let hashed_input_hex = hex::encode(&hashed_input);
+        println!("hashed_input_hex: {:?}", hashed_input_hex);
+
+        Self {
+            records: LookupMap::new(b"a".to_vec()),
+            crossword_solution: hashed_input_hex,
+        }
+    }
+
+    pub fn get_puzzle_number(&self) -> u8 {
+        PUZZLE_NUMBER
+    }
+
+    pub fn get_solution(&self) -> String {
+        self.crossword_solution.clone()
+    }
+
+    pub fn set_solution(&mut self, solution: String) {
+        self.crossword_solution = solution;
+    }
+
+    pub fn guess_solution(&mut self, solution: String) -> bool {
+        let hashed_input = env::sha256(solution.as_bytes());
+        let hashed_input_hex = hex::encode(&hashed_input);
+
+        if hashed_input_hex == self.crossword_solution {
+            env::log(format!("You guess right").as_bytes());
+            true
+        } else {
+            env::log(format!("Incorrect! Try again").as_bytes());
+            false
+        }
+    }
+
+
     pub fn set_greeting(&mut self, message: String) {
         let account_id = env::signer_account_id();
 
@@ -71,9 +114,15 @@ impl Welcome {
 mod tests {
     use super::*;
     use near_sdk::MockedBlockchain;
-    use near_sdk::{testing_env, VMContext};
+    use near_sdk::{testing_env, AccountId, VMContext};
+    use near_sdk::test_utils::{get_logs, VMContextBuilder};
 
     // mock the context for testing, notice "signer_account_id" that was accessed above from env::
+
+    fn get_signer_account_id() -> String {
+        "bob_near".to_string()
+    }
+    
     fn get_context(input: Vec<u8>, is_view: bool) -> VMContext {
         VMContext {
             current_account_id: "alice_near".to_string(),
@@ -96,6 +145,32 @@ mod tests {
     }
 
     #[test]
+    fn debug_get_hash() {
+        // Basic set up for a unit test
+        testing_env!(VMContextBuilder::new().build());
+
+        // Using a unit test to rapidly debugand iterate
+        let debug_solution = "near_test";
+        let debug_hash_bytes = env::sha256(debug_solution.as_bytes());
+        let debug_hash_string = hex::encode(debug_hash_bytes);
+
+        println!("Let's debug: {:?}", debug_hash_string);
+    }
+
+    #[test]
+    fn test_new_wellcom() {
+        let context = get_context(vec![], false);
+        testing_env!(context);
+        let contract = Welcome::new("near_test".to_string());
+
+        let debug_solution = "near_test";
+        let debug_hash_bytes = env::sha256(debug_solution.as_bytes());
+        let debug_hash_string = hex::encode(debug_hash_bytes);
+
+        assert_eq!(contract.crossword_solution, debug_hash_string);
+    }
+
+    #[test]
     fn set_then_get_greeting() {
         let context = get_context(vec![], false);
         testing_env!(context);
@@ -103,7 +178,7 @@ mod tests {
         contract.set_greeting("howdy".to_string());
         assert_eq!(
             "howdy".to_string(),
-            contract.get_greeting("bob_near".to_string())
+            contract.get_greeting(get_signer_account_id())
         );
     }
 

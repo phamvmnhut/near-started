@@ -3,18 +3,24 @@
   "version": "0.1.0",
   "license": "UNLICENSED",
   "scripts": {
+    "clean": "rimraf ./dist ./parcel-cache",
     "build": "npm run build:contract && npm run build:web",
     "build:contract": "node contract/compile.js",
     "build:contract:debug": "node contract/compile.js --debug",
     "build:web": "parcel build src/index.html --public-url ./",
     "dev:deploy:contract": "near dev-deploy",
-    "deploy:contract": "near deploy",
+    "deploy:contract": "near deploy --accountId=demo_app.phamnhut.testnet",
+    "deploy:clean": "near delete demo_app.phamnhut.testnet phamnhut.testnet && near create-account demo_app.phamnhut.testnet --masterAccount phamnhut.testnet",
     "deploy:pages": "gh-pages -d dist/",
     "deploy": "npm run build && npm run deploy:contract && npm run deploy:pages",
     "prestart": "npm run build:contract:debug && npm run dev:deploy:contract",
     "start": "echo The app is starting! It will automatically open in your browser when ready && env-cmd -f ./neardev/dev-account.env parcel src/index.html --open",
     "dev": "nodemon --watch contract/src -e rs --exec \"npm run start\"",
-    "test": "npm run build:contract:debug && cd contract && cargo test -- --nocapture && cd .. && jest test --runInBand"
+    "test": "npm run build:contract:debug && cd contract && cargo test -- --nocapture && cd .. && jest test --runInBand",
+    "patch:config": "node ./utils/patch-config.js",
+    "dev:deploy": "yarn build:contract:debug && rm -rf neardev && (near dev-deploy || exit 0) && yarn patch:config",
+    "dev:start:fe": "parcel src/index.html --open",
+    "dev:start:sc": "yarn dev:clean && yarn deploy:contract"
   },
   "devDependencies": {
     "@babel/core": "~7.14.0",
