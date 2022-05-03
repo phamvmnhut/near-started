@@ -9,6 +9,15 @@ const { networkId } = getConfig(process.env.NODE_ENV || 'development')
 export default function App() {
   // use React Hooks to store greeting in component state
   const [greeting, set_greeting] = React.useState();
+  // state crosswordSelected
+  const [crosswordSelected, set_crosswordSelected] = React.useState({});
+
+  let defaultData = {
+    is_use: false,
+    start: false,
+    data: '',
+    num: null,
+  };
 
   const [solution, set_solution] = React.useState();
   const [guessData, setGuessData] = React.useState([]);
@@ -22,6 +31,92 @@ export default function App() {
 
   const [funcName, setFuncName] = React.useState();
 
+  const [gridData, set_gridData] = React.useState(null);
+  const [updateGrid, set_updateGrid] = React.useState(false);
+
+  function set_gridData_from(data) {
+    // array answer
+    let data_formated = Array(20).fill(0).map((_, index_x) => {
+      return Array(20).fill(0).map((_, index_y) => {
+        return defaultData;
+      })
+    });
+
+    data.answer.forEach((item) => {
+      // direction: "Down"
+      // length: 5
+      // num: 1
+      // start: {x: 1, y: 1}
+      let pos = {
+        x: parseInt(item.start.x, 10),
+        y: parseInt(item.start.y, 10),
+      };
+
+      data_formated[pos.x][pos.y] = {
+        ...defaultData,
+        is_use: true,
+        start: true,
+        num: item.num,
+      };
+
+      let length = parseInt(item.length, 10);
+      if (item.direction === 'Down') {
+        for (let i = 1; i < length; i++) {
+          data_formated[pos.x + i][pos.y] = {
+            ...defaultData,
+            is_use: true,
+          }
+        }
+      }
+      if (item.direction === 'Across') {
+        for (let i = 1; i < length; i++) {
+          data_formated[pos.x][pos.y + i] = {
+            ...defaultData,
+            is_use: true,
+          }
+        }
+      }
+    });
+    set_gridData(data_formated);
+  }
+
+  function changeClueAnswer(value, indexClue) {
+    let clue = crosswordSelected.answer[indexClue - 1];
+    let array_string = value.split('');
+    let length = parseInt(clue.length, 10);
+    // if (array_string.length !== length) {
+    //   alert('length not match');
+    //   return;
+    // }
+
+    let data_formated = gridData;
+    let pos = {
+      x: parseInt(clue.start.x, 10),
+      y: parseInt(clue.start.y, 10),
+    };
+
+    if (clue.direction === 'Down') {
+      for (let i = 0; i < length; i++) {
+        let data = data_formated[pos.x + i][pos.y];
+        data_formated[pos.x + i][pos.y] = {
+          ...data,
+          data: array_string[i],
+        }
+      }
+    }
+    if (clue.direction === 'Across') {
+      for (let i = 0; i < length; i++) {
+        let data = data_formated[pos.x][pos.y + i];
+        data_formated[pos.x][pos.y + i] = {
+          ...data,
+          data: array_string[i],
+        }
+      }
+    }
+    set_gridData(data_formated);
+    set_updateGrid(!updateGrid);
+  }
+
   // The useEffect hook can be used to fire side-effects during render
   // Learn more: https://reactjs.org/docs/hooks-intro.html
   React.useEffect(
@@ -30,9 +125,14 @@ export default function App() {
       if (window.walletConnection.isSignedIn()) {
 
         // window.contract is set by initContract in index.js
-        window.contract.get_greeting({ account_id: window.accountId })
-          .then(greetingFromContract => {
-            set_greeting(greetingFromContract)
+        window.contract.get_unsolved_puzzles({ account_id: window.accountId })
+          .then(crosswordDatas => {
+            if (crosswordDatas.puzzles.length > 0) {
+              let data = crosswordDatas.puzzles[0];
+              set_crosswordSelected(data);
+              set_gridData_from(data);
+            }
+            // set_greeting(crosswordDatas)
           })
       }
     },
@@ -89,7 +189,7 @@ export default function App() {
         </h1>
 
 
-        <h2>Greeting App</h2>
+        {/* <h2>Greeting App</h2>
         <h5>Greeting to: {greeting}</h5>
         <form onSubmit={async event => {
           event.preventDefault()
@@ -161,10 +261,13 @@ export default function App() {
               </button>
             </div>
           </fieldset>
-        </form>
+        </form> */}
 
-        <h2>Crossword puzzle App</h2>
+        <h2 style={{
+          textAlign: 'center',
+        }}>Crossword puzzle App</h2>
         <h5>Your guess:</h5>
+
         {
           guessData.map((guess, index) => {
             return (
@@ -174,6 +277,83 @@ export default function App() {
             )
           })
         }
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'auto auto auto',
+        }}>
+          <div>
+            <h5>Solution this</h5>
+            {
+              crosswordSelected && crosswordSelected.answer && crosswordSelected.answer.map((answer, index) => {
+                return (
+                  <div key={answer.num}>
+                    <p style={{
+                      fontSize: '16px',
+                    }}>No.{answer.num}: {answer.length} character(s)</p>
+                    <p style={{
+                      fontSize: '14px',
+                    }}>{answer.clue}</p>
+                    <input type="text" onChange={(e) => changeClueAnswer(e.target.value, answer.num)} />
+                  </div>
+                )
+              })
+            }
+          </div>
+          <div>
+            {
+              updateGrid != undefined && gridData != null && Array(20).fill(0).map((_, index_x) => {
+                return (
+                  <div key={index_x} style={{
+                    display: 'flex',
+                    margin: '1px',
+                  }}>
+                    {
+                      Array(20).fill(0).map((v, index_y) => {
+                        let data = gridData[index_x][index_y];
+                        if (data.is_use) {
+                          return (
+                            <div style={{
+                              padding: '2px',
+                              height: "25px",
+                              width: "25px",
+                              backgroundColor: "#F3F2EF",
+                              margin: '1px',
+                              cursor: 'pointer',
+                              position: "relative",
+                              textAlign: "center",
+                            }}
+                            >{data.data}
+                              <div style={{
+                                position: 'absolute',
+                                top: '0',
+                                left: '0',
+                                fontSize: '10px',
+                              }}>{data.num}</div>
+
+                            </div>
+                          )
+                        } else {
+                          return (
+                            <div style={{
+                              padding: '2px',
+                              height: "25px",
+                              width: "25px",
+                              backgroundColor: "white",
+                              margin: '1px',
+                            }}></div>
+                          )
+                        }
+                      })
+                    }
+                  </div>
+                )
+              })
+            }
+          </div>
+
+        </div>
+
+
         <form onSubmit={async event => {
           event.preventDefault()
 
@@ -188,9 +368,10 @@ export default function App() {
 
           try {
             // make an update call to the smart contract
-            let result = await window.contract.guess_solution({
+            let result = await window.contract.submit_solution({
               // pass the value that the user entered in the solution field
-              solution: newSolution
+              solution: newSolution,
+              memo: "test"
             })
             setFuncName('guess_solution')
             setGuessData(guessData.concat({
@@ -250,13 +431,13 @@ export default function App() {
           </fieldset>
         </form>
       </main>
-      {showNotification && <Notification func={funcName}/>}
+      {showNotification && <Notification func={funcName} />}
     </>
   )
 }
 
 // this component gets rendered by App after the form is submitted
-function Notification({func}) {
+function Notification({ func }) {
   const urlPrefix = `https://explorer.${networkId}.near.org/accounts`
   return (
     <aside>
