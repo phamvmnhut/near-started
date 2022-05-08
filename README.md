@@ -115,3 +115,5 @@ ScreenShoot
 ===========
 
 ![Basic demo](./basic_demo.png)
+
+![Beginner demo](./beginner_demo.png)
