@@ -39,6 +39,12 @@ On Windows, if you're seeing an error containing `EPERM` it may be related to sp
 Near cli
 ========
 
+- set allow run near cli in Windows
+```bash
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+```
+
+- basic near cli
 ```bash
 near delete demo_app.phamnhut.testnet phamnhut.testnet
 ```
